@@ -129,27 +129,26 @@ the GUI must interface with the library in order to communicate with the FPGA.
 \section{Lock-in}
 
 The Lock-in is a type of amplifier, which can extract a signal when the measurement is affected by noise.
-
-This technique is particularly useful when the signal of interest has a known frequency, since it allows the signal to be separated from other components present in the measurement.
-The main principle of a lock-in amplifier is to use a reference signal with a known frequency and phase to identify the corresponding component inside the measured signal. 
+Separating the signal of interest from the noise can only be done by knowing its frequency.
+The main concept involves the use of a reference signal with known frequency and phase to extract the signal of interest.
 This operation is called phase-sensitive detection.
-In the solution proposed by this thesis, the lock-in amplifier is used to estimate the first derivative of the beam intensity with respect to the angle of the monochromator.
-To obtain this information, a small sinusoidal signal, called dither, is added to the position of the piezoelectric actuator.
-This produces a small oscillation of the monochromator angle, which consequently generates a variation in the intensity measured by the Beam Position Monitor (BPM).
-Since the frequency of the dither signal is known, it is possible to use it as a reference for the lock-in amplifier. 
-In this way, the intensity variations caused by the dither can be distinguished from the other components of the measured signal.
-The lock-in amplifier implemented in this thesis is based on digital signal processing. 
-The measured intensity is first passed through a band-pass filter centered around the dither frequency. 
-This operation removes part of the noise and other frequency components that are not useful for the measurement.
-The filtered signal is then multiplied by a sinusoidal reference signal with the same frequency as the dither. 
-This operation produces a component at zero frequency and another component at twice the reference frequency.
-By applying a low-pass filter to the resulting signal, the high-frequency components are removed, leaving a value proportional to the amplitude of the intensity oscillation.
-An important aspect of this technique is the phase difference between the reference signal and the measured intensity. 
-A phase difference can be introduced by the electronic and mechanical components of the system, affecting the value obtained after demodulation. 
-For this reason, a phase calibration procedure is necessary to correctly align the reference signal with the measured response.
-The resulting output is proportional to the first derivative of the intensity with respect to the monochromator angle, provided that the dither amplitude is sufficiently small and the reference phase is correctly aligned.
-This information can then be used by the PID controller to determine how the monochromator should be moved to reach the maximum beam intensity.
-The mathematical principles of this method and the implementation of the filtering and demodulation stages are described in the following section.
+For the realization of this thesis, the lock-in technique was used to calculate the first derivative of the intensity with respect to the monochromator angle.
+in this case the sinusoidal signal to be extracted is inserted into the piezoelectric actuator and it is called dither signal.
+As the actuator moves, it will move the DCM crystal, which in turn will cause an oscillation in the intensity measured by the BPM.
+Since the dither signal is an artificial signal that will be added by the control system, its frequency is known, so it is possible to use a reference signal with the lock-in technique to extract the intensity variation caused by the dither signal.
+Therefore, the intensity variation caused by the dithering signal can be extracted from the other components of the dithering signal.
+The lock-in amplifier described in this thesis was built entirely in digital format.
+Going into detail, the signal is first filtered through a band-pass filter centered on the dither signal frequency.
+Filtering is done to remove unwanted components and remove noise.
+The next step after filtering is to modify the intensity signal with the reference signal's sine wave, which has the same frequency as the dither signal. 
+This results in a signal composed of two components: the first is DC, while the second component is at twice the frequency of the dither signal.
+Since the zero-frequency component corresponds proportionally to the amplitude of the intensity oscillation, to isolate it from the other component it is necessary to filter it with a low-pass filter.
+The reference signal to function correctly also requires the phase difference between the reference signal and the dither signal. 
+The phase difference is contributed by several factors such as the electronics or mechanical components of the system which impact the demodulation.
+Since the phase difference is a component to be taken into account, it must be calculated to correctly align the reference signal with the measured response.
+So if the phase has been calculated correctly and the amplitude of the dither signal is small enough, the result obtained is proportional to the first derivative of the intensity with respect to the monochromator angle.
+In this way the PID controller, based on the derivative, determines in which direction to turn the crystal to orient it on the intensity peak.
+The implementation and details of the methods used to implement lock-in will be explained in the next section.
 
 
 \section{Closed-loop feedback}
