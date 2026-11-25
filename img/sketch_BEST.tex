@@ -1,0 +1,67 @@
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[
+        scale=0.85, transform shape,
+        beam/.style={line width=1.5pt, orange!80!black},
+        component/.style={draw, rectangle, rounded corners, thick, fill=blue!10, minimum width=2.2cm, minimum height=1.1cm, align=center, font=\small},
+        bestblock/.style={draw, rectangle, dashed, thick, fill=red!5, minimum width=6.5cm, minimum height=2.0cm, align=center, font=\small},
+        hardware/.style={draw, rectangle, thick, fill=gray!20, minimum width=2.4cm, minimum height=1.0cm, align=center, font=\small},
+        cable/.style={thick, blue!50!black, -Stealth}
+    ]
+
+      % --- BEAMLINE LAYOUT ---
+      \coordinate (source) at (0, {3.5 - 0.2*cos(10)});
+      \coordinate (c1) at (3.2, 3.5);
+      \coordinate (c2) at (5.8, 2.8);
+      \coordinate (c3) at (5.8, 2.1);
+      
+      \coordinate (c1_bottom) at ($(c1) - ({0.2*sin(10)}, {0.2*cos(10)})$);
+      \coordinate (c3_top) at ($(c3) + ({0.2*sin(28)}, {0.2*cos(28)})$);
+      \coordinate (c2_bottom) at ($(c2) - ({0.2*sin(28)}, {0.2*cos(28)})$);
+
+      \coordinate (det) at ($(c3_top) + ({2.2},{0})$);
+      \coordinate (sample) at ($(det) + ({2.0},{0})$);
+
+      % Draw X-ray beam path
+      \draw[beam] (source) node[above, black, font=\bfseries] {Synchrotron Source} -- (c1_bottom);
+      \draw[beam] (c1_bottom) -- node[above right, font=\footnotesize, black] {DCM} (c2_bottom);
+      \draw[beam] (c2_bottom) -- (c3_top);
+      \draw[beam] (c3_top) -- (det);
+      \draw[beam] (det) -- (sample);
+
+      % --- OPTICAL COMPONENTS (DCM & DETECTORS) ---
+      \draw[thick, fill=cyan!30, rotate around={-10:(c1)}] ($(c1)+(-0.4,-0.2)$) rectangle ($(c1)+(0.4,0.2)$);
+      \node[above=0.25cm, font=\small] at (c1) {Crystal 1 (Fixed)};
+
+      \draw[thick, fill=cyan!30, rotate around={-28:(c2)}] ($(c2)+(-0.4,-0.2)$) rectangle ($(c2)+(0.4,0.2)$);
+
+      \begin{scope}[shift={(c3)}, rotate=-28]
+        \draw[thick, fill=cyan!30] (-0.4,-0.2) rectangle (0.4,0.2);
+      \end{scope}
+
+      % Ion Chamber / Detector (I0)
+      \draw[draw, thick, fill=green!20] ($(det)+(-0.3,-0.6)$) rectangle ($(det)+(0.3,0.6)$);
+      \node[above=0.6cm, font=\small, align=center] at (det) {BPM\\(Detector)};
+
+      % Endstation / Sample
+      \node[component] at (sample) {Sample /\\ Endstation};
+
+      % --- ELS INSTRUMENTS BEST SYSTEM INTEGRATION ---
+      \node[hardware] (predac) at (4.5, -0.6) {PreDAC\\(Actuator Module)};
+      \node[hardware] (tetramm) at (8.2, -0.6) {TetrAMM\\(Readout Module)};
+
+      \node[bestblock] (central) at (6.35, -4.0) {
+        \textbf{ELS Instruments BEST Central Unit}
+      };
+
+
+      % --- CABLING & SIGNALS ---
+      \draw[cable] (predac.north) -- node[right, font=\footnotesize] {Drive + Dither ($V$)} ($(c2)+(0,-0.8)$);
+      \draw[cable] (det.south) -- node[right, font=\footnotesize] {Current Signals} (tetramm.north);
+      \draw[cable, <->] (predac.south) -- node[left, font=\footnotesize] {Optical link} (predac.south |- central.north);
+      \draw[cable, <->] (tetramm.south) -- node[right, font=\footnotesize] {Optical link} (tetramm.south |- central.north);
+
+    \end{tikzpicture}
+    \caption{Schematic layout of a synchrotron beamline optics and hardware integration using the BEST system. The X-ray beam reflects off the Double Crystal Monochromator (DCM), passes through the BPM for position and intensity readout, and reaches the endstation. Real-time position control loops executed on the Central Unit coordinate the PreDAC actuator module and TetrAMM readout module to keep position stable in a closed-loop fashion.}
+    \label{fig:beamline_best_integration}
+\end{figure}

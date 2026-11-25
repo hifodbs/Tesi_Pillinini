@@ -1,0 +1,157 @@
+              %******************************************%
+              %                                          %
+              % Template standard per la Tesi di Laurea  %
+              %            di Stefano Bianchi            %
+              %                                          %
+              %         versione: 27 marzo 2014          %
+              %                                          %
+              %******************************************%
+       
+% Se si vuole stampare su entrambi i lati, porre la dicitura 'twoside'
+% tra i parametri documentclass
+\documentclass[a4paper,11pt,oneside,openany]{book}
+
+\usepackage[english,italian]{babel}
+
+\usepackage[utf8]{inputenc} % Consente l'uso dei caratteri accentati italiani
+\usepackage[T1]{fontenc} % Consente l'uso di caratteri speciali appartenenti in genere ad alfabeti non inglesi
+
+\usepackage{fancyhdr} % Consente il rendering della copertina
+
+\usepackage{graphicx} % Consente l'inserimento delle figure nel documento
+
+%----------------PERSONAL ADDITION-------------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc, shapes}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{pdflscape} %things need to be landscaped
+%----------------END PERSONAL ADDITION-------------
+
+\usepackage{subfigure} % Consente l'inserimento di sottofigure
+
+\usepackage{tabularx} % Consente l'uso di funzionalità aggiuntive alle tabelle
+\usepackage{longtable} % Consente la scrittura delle tabelle su più pagine
+
+\usepackage[titletoc]{appendix} % Consente di porre le appendici in indice
+
+\usepackage{float} % Necessario per inserire immagini flottanti
+
+\usepackage{fancyvrb} % Consente l'utilizzo di finestre Verbatim (testo cche si vuole porre così com'è, senza formattazione alcuna) all'interno di una cornice
+
+\usepackage{amsmath} % Consente l'uso di funzioni aggiuntive per le formule
+\numberwithin{equation}{section}
+
+\usepackage{hyperref} % Indice degli argomenti e rimandi cliccabili, per una navigazione più comoda all'interno del file
+
+\usepackage{lipsum} % Consente di inserire testo fittizio all'interno della tesi. Inutile in fase di scrittura della tesi. Eliminare questa dicitura e tutte le diciture \lorem all'interno del testo.
+
+% Per inserire i contenuti, riferirsi ai file relativi e segnati tra parentesi graffe nei parametri \input
+
+
+\newcommand{\revAC}[1]{\textcolor{violet}{AC: #1}}
+\newcommand{\revMT}[1]{\textcolor{magenta}{SM: #1}}
+
+\newcommand{\add}[1]{\textcolor{blue}{#1}}
+\newcommand{\remove}[1]{\textcolor{red}{\sout{#1}}}
+
+%*******************************************************
+% Impostazioni della singola pagina e della copertina
+%*******************************************************
+\input{settings/Impostazioni}
+
+%*******************************************************
+% Copertina
+%*******************************************************
+% Imposta la copertina
+% Non modificare questa parte
+\usepackage[some]{background}
+\SetBgScale{1}
+\SetBgContents{
+\includegraphics[scale=1]{img/units_logo.pdf}}
+\SetBgColor{gray}
+\SetBgAngle{0}
+\SetBgOpacity{0.07}
+% Non modificare questa parte
+
+\begin{document}
+\input{front/Copertina}
+
+%*******************************************************
+% Dedica
+%*******************************************************
+\input{front/Dedica}
+	
+\frontmatter
+
+%*******************************************************
+% Sommario
+%*******************************************************
+\input{front/Sommario}
+
+%*******************************************************
+% Indice
+%*******************************************************
+\tableofcontents
+
+%*******************************************************
+% Introduzione
+%*******************************************************
+% Non modificare questa parte
+\renewcommand{\chaptermark}[1]{\markboth{\MakeUppercase{\ #1}}{}}
+% Non modificare questa parte
+
+
+
+%*******************************************************
+% Capitoli
+%*******************************************************
+\mainmatter
+
+% Non modificare questa parte
+\renewcommand{\chaptermark}[1]{\markboth{\MakeUppercase{\chaptername\ \thechapter.\ #1}}{}}
+% Non modificare questa parte
+
+% Inserire tutti i capitoli necessari. Si possono inserire tutti i capitoli
+% all'interno di un singolo file .tex oppure un file .tex per ogni capitolo.
+
+\input{front/Introduzione}
+\input{main/Capitolo1}
+\input{main/Capitolo2}
+\input{main/Capitolo3}
+
+%*******************************************************
+% Capitolo conclusivo
+%*******************************************************
+\input{back/Conclusioni}
+
+%*******************************************************
+% Appendice
+%*******************************************************
+% Non modificare questa parte
+\pagestyle{fancy}
+\renewcommand{\chaptermark}[1]{\markboth{\MakeUppercase{APPENDICE\ \thechapter.\ #1}}{}}
+% Non modificare questa parte
+
+\appendix\label{appendix}
+
+\input{back/Appendice1}
+\input{back/Appendice2}
+\input{back/Appendice3}
+
+\backmatter
+
+%*******************************************************
+% Bibliografia
+%*******************************************************
+\nocite{*}
+\bibliography{Bibliografia}
+\bibliographystyle{plain}
+
+%*******************************************************
+% Dedica finale o ringraziamenti
+%*******************************************************
+\input{back/DedicaFinale}
+
+\end{document}

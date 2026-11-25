@@ -1,0 +1,66 @@
+\chapter*{Conclusioni}
+% Non modificare questa parte
+\addcontentsline{toc}{chapter}{Conclusioni}
+\label{chap:concl}
+\markboth{CONCLUSIONI}{CONCLUSIONI}
+% Non modificare questa parte
+
+Beamlines can have problems to continuously hit the intensity peak.
+The problem of not always hitting the peak can be caused by many factors, including thermal drift and mechanical friction.
+In the thesis, a solution was proposed for the ELS Instruments in which a control system tracks the peak intensity of the photon beam. 
+The proposed solution will be integrated into the BEST system, which aims to support synchrotron facilities.
+Specifically, the solution was designed to counteract the thermal drift of the DCMs, which cause beam intensity degradation.
+The BEST, starting with only beam position control, is unable to detect and compensate beam intensity degradation, therefore, to overcome this problem, it was necessary to modify the instrumentation already implemented at firmware level. 
+Changes have been made to accommodate the new solution, the were heterogeneous within the instrumentation as it is composed of different components; the modifications included parts of the FPGA, the NIOS II soft processor, and the local GUI.
+The implementation added the following features to the BEST system:
+
+\begin{itemize}
+    \item \textbf{A Four-Stage Digital Lock-in Pipeline:} 
+    The main component of the work is the pipeline for extracting the beam intensity gradient, which includes, in this order: a bandpass filter, demodulation, a lowpass filter, and a PID controller.
+    \item \textbf{Automated Startup Phase Calibration:} 
+    To ensure correct demodulation it is necessary to calculate the delay induced by the system in which the instrumentation will be implemented.
+    Since the delay varies depending for each system, it was necessary to create a delay calculation routine, based on in-phase sampling and quadrature combined with a four-quadrant arctangent calculation ($\text{atan2}$).
+    \item \textbf{Software-in-the-Loop (SIL) Validation:} 
+    To test the solution, an internal simulation of the system was proposed. This led to rapid development of the tests and the ability to adapt them if necessary. So it was possible to test different dynamics of the solution and different rocking curves from the static to the dynamic one.
+\end{itemize}
+
+\section{Achievement of Thesis Objectives}
+
+The main objective of the thesis was to build a peak tracking system based on solution already reviewed.
+The system built will counteract the shifts effect caused by thermal drift.
+
+During the testing phase, the solution was shown to be able to extract the intensity gradient and provide the correct error signal to the PID controller. 
+The tests also covered the phase delay calibration routine, which also passed successfully. This demonstrated that the control system is capable of compensating for the delay introduced by the system.
+
+Tests that included simulation demonstrated the system's ability to track the peak over time, even when thermal drift was added. It also demonstrated stable intensity, which would not be the case without control.
+
+The results demonstrated that the primary objective of the thesis was achieved.
+
+\section{Comparison with the MoCo Controller}
+
+The proposed solution shares the same core idea as MoCo developed by ESRF \cite{MoCo2008}.
+Both use the intensity gradient as information to adjust the angle of the monochromator.
+
+
+Although they share the same principle, the implementation is different.
+MoCo is a dedicated controller while what was done in this thesis is an addition to an already functioning system.
+MoCo uses an integrator as its controller, while the proposed solution uses a full PID.
+A full PID gives more freedom over the controller's behavior and can still be used as an integrator.
+Another difference is in the phase delay calculation: MoCo allows for manual setting, while in the thesis it is calculated automatically using a routine. The procedure itself is based on in-phase and quadrature sampling.
+
+Therefore, the solution was created by drawing inspiration from various sources, including the MoCo manual, for its implementation within the BEST system.
+This meant extending the functionality of BEST by adding peak intensity tracking control to the existing position tracking control.
+
+\section{Future Developments and Research Directions}
+The proposed solution has been shown to be capable of fulfilling its duties of tracking in real time the peak intensity, several avenues can be taken to expand on what has already been done in this thesis from future research to make it more customizable according to needs.
+
+\begin{itemize}
+
+    \item \textbf{Continuous Phase Calibration:}
+    The phase delay is calculated only once at the start of the control system.
+    The assumption that the delay introduced by the system remains constant, especially during long-time operations, could be false due to thermal expansion of cables, amplifiers, and mechanical linkages. Therefore, once calculated at startup, the phase delay should be tracked on the fly without interrupting beam delivery to maintain correct demodulation.
+
+    \item \textbf{Runtime Parameter Configuration:}
+    The solution implemented in this thesis has coefficients written directly into the firmware without the possibility of being modified, such as for example the PID frequency (fixed at $100\text{ Hz}$) and the IIR filter coefficients.
+    A possible continuation of the project would be to use the local GUI to modify the configuration parameters and calculate IIR filters coefficients depending on the system dynamics.
+\end{itemize}

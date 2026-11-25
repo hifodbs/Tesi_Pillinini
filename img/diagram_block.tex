@@ -1,0 +1,24 @@
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}[
+        auto,
+        node distance=2.2cm,
+        block/.style={draw, rectangle, rounded corners, thick, fill=blue!10, minimum width=2.6cm, minimum height=1.3cm, align=center, font=\small},
+        opblock/.style={draw, rectangle, thick, fill=blue!10, minimum width=1.2cm, minimum height=1.3cm, align=center, font=\small},
+        signal/.style={thick, -Stealth}
+    ]
+      % Nodes
+      \node[coordinate] (input) {};
+      \node[block, right=of input] (filter) {$H_1(s)$\\{\footnotesize Butterworth LPF}};
+      \node[opblock, right=of filter] (diff) {$S$};
+      \node[coordinate, right=of diff] (output) {};
+
+      % Connections & Labels
+      \draw[signal] (input) -- node[above, font=\footnotesize] {$X(s)$} (filter);
+      \draw[signal] (filter) -- node[above, font=\footnotesize] {} (diff);
+      \draw[signal] (diff) -- node[above, font=\footnotesize] {$Y(s)$} (output);
+
+    \end{tikzpicture}
+    \caption{Laplace-domain block diagram of the cascaded Butterworth low-pass filter and differentiation stage.}
+    \label{fig:iir_block_diagram}
+\end{figure}

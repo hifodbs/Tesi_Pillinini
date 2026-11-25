@@ -1,0 +1,32 @@
+\chapter{Sommario}
+
+Le linee di luce di sincrotrone richiedono un flusso di fotoni stabile per garantire misurazioni sperimentali affidabili.
+Durante gli esperimenti disturbi come la deriva termica e l'attrito meccanico possono influenzare i componenti della linea di fascio, in particolare il monocromatore a doppio cristallo (DCM), spostando il suo punto di lavoro dal picco della rocking curve, dove il flusso di fotoni è massimo.
+Il sistema BEST (Beamline Enhanced Stabilization Technology), sviluppato da ELS Instruments, fornisce già il controllo della posizione del fascio a un determinato setpoint, ma non è in grado di seguire il picco di intensità.
+Questa tesi presenta un sistema di controllo per il tracciamento del picco di intensità integrato nel sistema BEST.
+La soluzione implementata sovrappone un piccolo segnale sinusoidale all'attuatore piezoelettrico che muove il monocromatore.
+Il gradiente di intensità viena estratto ed elaborato da una catena digitale composta da un filtro passa-banda, una demodulazione sincrona, un filtro passa-basso e un controllore Proporzionale-Integrale-Derivativo (PID).
+Portando il gradiente a zero, il sistema sposta il monocromatore verso il picco di intensità, indipendentemente dal suo valore.
+
+L'implementazione ha richiesto modifiche a diverse parti del sistema BEST: la logica FPGA, il firmware in esecuzione sul processore soft-core integrato e l'interfaccia grafica locale.
+Inoltre, poiché una corretta demodulazione richiede la conoscenza del ritardo di fase introdotto dall'intero sistema, è stata implementata una procedura di calibrazione iniziale per stimarlo a partire dalle componenti in fase e in quadratura (I/Q) del segnale mediante un arcotangente a quattro quadranti.
+Il sistema è stato validato in un ambiente di simulazione Software-in-the-Loop (SIL), che ha permesso di testare il software implementato in diverse condizioni operative e dinamiche della rocking curve.
+I risultati della simulazione hanno dimostrato la capacità del sistema di posizionare con precisione il monocromatore sul picco di intensità.
+Nel complesso, questo lavoro estende il sistema BEST esistente con una capacità di feedback aggiuntiva, combinando la stabilizzazione della posizione del fascio con il tracciamento in tempo reale del picco d'intensità.
+
+\chapter{Summary}
+
+Synchrotron beamlines requires a stable photon flux to ensure reliable experimental measurements.
+During experiments, especially long-duration ones, disturbances like thermal drift and mechanical friction, 
+can affect beamline components, in particular the double crystal monochromator (DCM), shifting its working point away from the peak of the rocking curve, where photon flux is at its maximum.
+The BEST (Beamline Enhanced Stabilization Technology) system, developed by ELS Instruments, already provides beam position control at a given setpoint, but cannot track the intensity peak.
+This thesis presents the design, implementation and validation of a control system for peak intensity tracking integrated into the BEST system.
+The implemented solution adds a small sinusoidal dither signal on the piezoelectric actuator that moves the monochromator.
+The intensity gradient is extracted by a digital pipeline composed of a band-pass filter, synchronous demodulation, low-pass filter and a Proportional-Integral-Derivative (PID) controller.
+By driving the gradient to zero, the system moves the monochromator towards the intensity peak, regardless of its value.
+
+The implementation require modifications on several parts of the BEST system: the FPGA logic, the firmware running on the embedded soft-core processor, and the local GUI used for data visualization and system configuration.
+Additionally, since correct demodulation requires knowledge of the phase delay introduced by the whole system, an initial calibration procedure has been implemented to estimate it from the in-phase and quadrature (I/Q) components of the signal by means of a four-quadrant arctangent.
+The system has been validated in a Software-in-the-Loop (SIL) simulation environment, which made it possible to test the implemented software under different operating conditions and rocking curve dynamics.
+The simulation results have shown the system ability to accurately position the monochromator at the intensity peak.
+Overall, this work extends the existing BEST system with an additional feedback capability, combining beam position stabilization with real-time peak intensity tracking.

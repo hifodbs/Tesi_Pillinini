@@ -1,0 +1,245 @@
+\chapter{System Architecture and Implementation}\label{chap:System Architecture and Implementation}
+
+As mentioned before, the solution proposed in this thesis is an addition on what is already done by ELS Instruments. 
+The company already makes available the position control, therefore the architecture is already designed and implemented.
+What is missing, is the adjustment for the case of peak tracking control.
+The architecture of the BEST is heterogeneous, and involve the knowledge of different programming languages, even for implementing another type of control such as peak tracking control.
+For implementing the solution of this thesis, it was necessary to get hands-on with various parts of the BEST system's software.
+Starting with Quartus II for configure the logic of the FPGA, which in this case was necessary for outputting the value of the intensity derivative.
+Quartus II is a powerful tool capable of many actions, for example design the logic of the FPGA.
+But it's possible to synthesize custom blocks for doing the needed functions, for example write the intensity derivative value in a shared memory.
+The shared memory can be read from programs through the BEST library, which is a library wrote for interface with the driver of the FPGA.
+Inside Quartus II it's possible to code the program that will run inside the soft-core, in this specific case the soft-core was Nios II. 
+Quartus II provides the IDE Eclipse for Nios II and the language used was C, this part was done for calculating the derivative and implementing the controller for the intensity tracking.
+The last main part of the project was the local GUI, which is necessary for having a feedback on what the FPGA is doing by a Graphical User Interface (GUI).
+The GUI wasn't used only for monitoring the FPGA but for configure some parameters of the FPGA, too. 
+The development environment in this case is Qt Creator which is framework based on C++.
+These were the three main components that needed changes for implementing the solution proposed by this thesis. 
+The controller logic itself is described into a dedicated sub-section.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{tikzpicture}
+    \end{tikzpicture}
+    \caption{Lo schema inziale di Paolo magari semplificato}
+    \label{fig:hw_sw_architecture}
+\end{figure}
+
+
+\section{FPGA System Integration and Qsys Interconnects}
+\label{subsec:fpga_qsys_integration}
+
+The foundational architecture provided by ELS Instruments is based on a compiled FPGA bitstream optimized for position the beam at the target position. 
+To add another type of controller like peak tracking, the FPGA must be recompiled for accommodate the new block that will expose the first derivative and the new connections for connecting the new block with the already existing ones.
+These modifications were done inside an Intel Quartus II's tool, Platform Designer (Qsys).
+Qsys is a graphical interface that allow to build, configure and connect digital hardware systems using intellectual property (IP) cores, processors, memories, and peripherals.
+Furthermore inside Qsys, is possible to import verilog files to synthesize new type of intellectual properties.
+Once added, the IP rights must be configured by specifying the role of each input and output pin.
+
+\subsection{Modification of the Qsys System Project}
+
+The entry point of the project that encloses it, is a Qsys file; it instantiates the processors, peripherals, communications controllers and custom hardware accelerators.
+For adding the solution proposed by this thesis is required to alter the topology of the project by adding connections and a block:
+\begin{itemize}
+    \item \textbf{Custom IP:} it was the block capable of receiving the first derivative of the intensity calculate the soft-core, it was added inside the subsystem that contain the soft-core responsible for position control and future peak intensity tracking.
+    \item \textbf{Clock Domain and Reset Alignment:} The custom block was synchronized to the system clock domain, so that it is compliant with the rest of the system.
+    \item \textbf{Export connection:} Because the Custom IP was inside a subsystem, for adding the derivative to the shared memory it need to be export outside of the subsystem.
+    \item \textbf{PreDMA connection:} This connection link the subsystem that deals with signal processing with the Direct Memory Access which is the shared memory
+\end{itemize}
+
+This what was need to modify for exporting the derivative outside of the FPGA. More details on how the shared memory work is described in a subsection below.
+
+\subsection{Avalon Interface Bus Architecture}
+The communication between the block inside the FPGA are based through a system-level interconnect fabric, which in this case is the Avalon Interconnect Fabric.
+Unlike the traditional shared system bus where only one device can talk, the Avalon Interconnect Fabric uses a slave-side arbitration and switch-fabric architecture.
+These type of protocols allows multiple master to communicate to multiple slave simultaneously provided that the data exchange does not involve the same sources or destinations.
+Avalon provide three main type of standardize interface for the communication between the blocks, although is possible to create a custom communication instruction.
+\begin{itemize}
+    \item \textbf{Avalon Streaming (Avalon-ST) for Data Paths:} Used for high-speed, unidirectional, point-to-point data streams (e.g., reading the TetrAMM output and passing it to another block). It bypasses address decoding to achieve high bandwidth with minimal latency.
+    \item \textbf{Avalon Memory-Mapped (Avalon-MM) for Control and Telemetry:} The soft-cores reads or writes data by executing standard load/store assembly instructions targeting a specific addresses. Every block is assigned a unique address range. 
+    \item \textbf{Avalon Conduit for Signal routing:} Used for send signals outside of the Avalon Interconnect Fabric to the physical pins of the FPGA.
+\end{itemize}
+
+\section{Shared Memory and DMA Data Transfer}
+
+Although the FPGA can handle a fast flow of data, to communicate it to the host PC without affecting performance it is necessary to use an adequate solution.
+The DMA allows devices to transfer data directly to and from system memory, freeing the CPU from the operation.
+This way the host PC can query the FPGA via drivers to read data that is already present in the shared memory without having to slow down the FPGA itself.
+
+\subsection{On-Chip Shared Memory Architecture}
+The data stored in the shared memory ranges from raw data such as beam position to control system variables such as PID coefficients. 
+Other variables, such as the first derivative of intensity and other parameters for solution simulation, have also been added.
+Dealing with a continuous stream of data that is faster than the calls one can make to read that data, it is necessary to take a few precautions:
+\begin{itemize}
+    \item \textbf{Dual-Port RAM Blocks:} The shared memory is configured in a way that is accessible by the soft-core processor and the block that handles data delivery to the host PC.
+    \item \textbf{Circular Buffer Implementation:} Instead of having a dynamic memory allocation, a circular buffer was implemented. In this way the memory has always the latest updated data. So, to function, the firmware always overwrites the oldest data.
+\end{itemize}
+
+\subsection{Direct Memory Access (DMA) Offloading}
+
+To read telemetry data without blocking the soft-core that handles the control system:
+\begin{itemize}
+    \item \textbf{Hardware-Assisted Transfers:} An Avalon-ST/MM DMA controller was integrated into the system topology to handle bulk data transfers independently of the Nios II CPU.
+    \item \textbf{Minimizing CPU Interrupt Overhead:} By utilizing DMA, the softcore processor is freed from executing explicit byte-by-byte copy routines. Instead, the DMA controller signals the CPU only upon completion of a block transfer, ensuring that deterministic execution bounds for the extremum-seeking control loop remain strictly uncompromised.
+\end{itemize}
+
+\section{Driver and BAR (Base Address Register)}
+
+To allow the PC host to communicate with the FPGA hardware peripherals for setting parameter or already mention before for reading the data, it was established a device driver.
+The driver use designed to match the corresponding operating system that in this case was Linux. 
+
+\subsection{PCIe Bus Enumeration and BAR Mapping}
+The host PC communicates with the FPGA via a PCIe connection, it knows the addresses thanks to the base address register (BAR).
+The BARs tells to the system how much continuous memory the device need and what type of space it is.
+During system boot phase and device enumeration:
+\begin{itemize}
+    \item \textbf{Base Address Register (BAR) Configuration:} The system allocates physical memory windows via the PCIe Base Address Registers. These BARs map the FPGA's internal memory-mapped control registers, status flags, and shared DMA buffers directly into the host system's physical address space.
+    \item \textbf{Memory-Mapped I/O (MMIO):} By utilizing these mapped regions, software layers can read or write to hardware registers (such as dither parameters, filter coefficients, and status flags) with minimal access latency, avoiding the overhead of complex packet-based network stacks for local register tuning.
+\end{itemize}
+
+\subsection{Character Device Driver Modifications}
+For exposing the shared memory containing the measurement made by the BPM and the additional values of the control system inside the FPGA to the host:
+\begin{itemize}
+    \item \textbf{Kernel-to-User Space Bridging:} The existing device driver architecture was inspected and understood for tracking down the paths made by the data to reach the host. The idea was to use the data channel already employed to pass further data such as the first derivative. 
+    \item \textbf{Data Interception and Tracing:} The driver serves as an intermediate software to allow the host to communicate with the FPGA and vice versa. Thus, the job done by the driver is to prepare the data from the FPGA and make them presentable to the host, which can then be displayed on the screen using the local GUI.
+\end{itemize}
+
+\section{Nios II Softcore Subsystem and Eclipse Firmware Development}
+
+Writing firmware inside a FPGA requires hardware-software co-design flow, Platform Designer, and the Nios II Software Build Tools (SBT) for Eclipse.
+Once the hardware design is programmed into the FPGA (using Platform Designer), software development moves to the Nios II SBT for Eclipse.
+The firmware run on a Nios II soft-core processor.
+The main idea of soft-cores are they can handle Complex state machines, protocols, control flows and it is easier to write and maintain in a high-level software language like C.
+The controller software was implemented by following the interrupt service routine (ISR).
+Every time the soft-core receive a specific interrupt event, it trigger the position control feedback.
+Thus, instead of doing the position control there is an option to use the lock-in system for intensity peak tracking.
+It also outputs a byte stream representing the value of the first derivative.
+
+\section{Supervisory Qt (C++) Desktop Interface and Parameter Tuning}
+Qt Creator is a cross-platform Integrated Development Environment (IDE), it support multiple languages and in this case was adopted C++.
+The developed program was created for multiple purpose, for having a visual feedback of the controller and the beam like position and intensity. 
+And to manage or to configure the parameters of the controller if needed.
+The program which use a graphical user interface (GUI), is unable to can dialogue directly with the FPGA.
+the GUI must interface with the library in order to communicate with the FPGA.
+\begin{itemize}
+    \item \textbf{Parameter Injection:} Operators can dynamically adjust control loop configuration parameters—such as which channel represents what, PID parameters and other parameters for lock-in that allow for its flexibility. The Qt application serializes these commands and use the library for configuring the controller.
+    \item \textbf{Real-Time Telemetry Visualization:} The modified Qt libraries read and process the DMA. It display the basic values such as the current of the BPM, the position of the beam or its intensity, the output of the DAC and the first intensity derivative.  
+\end{itemize}
+
+\section{Lock-in}
+
+The Lock-in is a type of amplifier, which can extract a signal when the measurement is affected by noise.
+
+This technique is particularly useful when the signal of interest has a known frequency, since it allows the signal to be separated from other components present in the measurement.
+The main principle of a lock-in amplifier is to use a reference signal with a known frequency and phase to identify the corresponding component inside the measured signal. 
+This operation is called phase-sensitive detection.
+In the solution proposed by this thesis, the lock-in amplifier is used to estimate the first derivative of the beam intensity with respect to the angle of the monochromator.
+To obtain this information, a small sinusoidal signal, called dither, is added to the position of the piezoelectric actuator.
+This produces a small oscillation of the monochromator angle, which consequently generates a variation in the intensity measured by the Beam Position Monitor (BPM).
+Since the frequency of the dither signal is known, it is possible to use it as a reference for the lock-in amplifier. 
+In this way, the intensity variations caused by the dither can be distinguished from the other components of the measured signal.
+The lock-in amplifier implemented in this thesis is based on digital signal processing. 
+The measured intensity is first passed through a band-pass filter centered around the dither frequency. 
+This operation removes part of the noise and other frequency components that are not useful for the measurement.
+The filtered signal is then multiplied by a sinusoidal reference signal with the same frequency as the dither. 
+This operation produces a component at zero frequency and another component at twice the reference frequency.
+By applying a low-pass filter to the resulting signal, the high-frequency components are removed, leaving a value proportional to the amplitude of the intensity oscillation.
+An important aspect of this technique is the phase difference between the reference signal and the measured intensity. 
+A phase difference can be introduced by the electronic and mechanical components of the system, affecting the value obtained after demodulation. 
+For this reason, a phase calibration procedure is necessary to correctly align the reference signal with the measured response.
+The resulting output is proportional to the first derivative of the intensity with respect to the monochromator angle, provided that the dither amplitude is sufficiently small and the reference phase is correctly aligned.
+This information can then be used by the PID controller to determine how the monochromator should be moved to reach the maximum beam intensity.
+The mathematical principles of this method and the implementation of the filtering and demodulation stages are described in the following section.
+
+
+\section{Closed-loop feedback}
+
+The solution's keys components are the Taylor expansion series, the Lock-in Amplifier and the PID already mention before.
+Considering a function $f(x)=I$, where x represent the angle of the crystal and I the intensity produced by the beam position monitor.
+From a fixed angle $\theta_0$ and for small changing in x it is possible to use Taylor expansion of $f(x)$ to the first order
+
+\begin{equation}
+    put-formula-of-taylor-expansion
+\end{equation}
+
+
+where $f'(x)$ depend on the small movement $\Delta\theta$.
+In this case the small movement is set artificially, a small noise is injected into the movement of the piezoelectric.
+The noise in this case is called reference signal and it is a sinusoidal function with a know frequency $w_{r}$ and amplitude $\alpha_r$.
+And combined with the actual position of the monochromator, the equation result in:
+
+\begin{equation}
+    equation-of-theta
+\end{equation}
+
+The first component is also time-dependent, as it can be influenced by mechanical friction, piezoelectric hysteresis, etc.
+The second key aspect of the solution is the lock-in amplifier, it is a method used for recover small signal in presence of overwhelming noise environment.
+Thus it possible to recover the effect of the reference signal on the intensity of the beam.
+Once the signal is recovered, it will then be passed to the PID which will calculate the movement that the monochromator will have to make to reach the peak.
+Starting from the rocking curve graph, we can notice that to the left of the peak the derivative is less than zero while to the right it is positive.
+Then setting the PID setpoint to zero, it can manipulate the position of the monochromator so as to set it to the peak intensity.
+In this way it is not necessary to know the value of intensity peak for the PID to work.
+
+\subsection{Principle of Phase-Sensitive Demodulation}
+Starting from the equation of the monochromator's angle, it is possible to expand the measure intensity $I(\theta)$ via a Taylor series around the operating point $\theta_0$:
+
+\begin{equation}
+    I(t) \approx I(\theta_0) + \left.\frac{dI}{d\theta}\right|_{\theta_0} a \sin(\omega_d t) + \frac{1}{2}\left.\frac{d^2I}{d\theta^2}\right|_{\theta_0} a^2 \sin^2(\omega_d t) + \dots
+\end{equation}
+
+The derivative of the first order contains the directional gradient component modulated at the fundamental reference signal frequency $\omega_r$. 
+
+\subsection{Demodulation and Filtering Pipeline}
+Starting from the noise signal received by the BPM, it is need to isolate the gradient component $\left.\frac{dI}{d\theta}\right|_{\theta_0}$.
+Digital lock-in tools allow the incoming signal to be processed to filter out all non-gradient components through a sequential four stage pipeline:
+
+\begin{enumerate}
+    \item \textbf{Band-Pass Filtering (Dither Pre-Selection):} 
+    Before starting demodulate the raw intensity signal, it is filter with a pass-band filter center at the dither frequency.
+    In this way is possible to remove the DC offsets, low-frequency drift and the analog for the high frequencies.
+    This filter phase ensure only signal components around the dither frequency enter the mixer.
+    
+    \item \textbf{Mixer Stage (Multiplication):} The filtered intensity signal $I(t)$ is multiplied by the dither signal without amplitude and shifted by a phase delay introduced by the system itself:
+    \begin{equation}
+        M(t) = I(t) \cdot \sin(\omega_d t + \phi)
+    \end{equation}
+    This multiplication takes the gradient amplitude to the DC offset ($0\text{ Hz}$) and all the carrier noise is shifted on higher frequency along with the high-order harmonics.
+
+    \item \textbf{Low-Pass Filtering (Integrator Stage):} 
+    After mixing then signal is then filtered with a low-pass filter for removing all the noise and high-order harmonic.
+    The remain component of the mixed signal is the DC output voltage $V_{demod}$ which is directly proportional to the current slope of the rocking curve:
+    \begin{equation}
+        V_{demod} \propto \left.\frac{dI}{d\theta}\right|_{\theta_0} \cos(\phi)
+    \end{equation}
+
+    \item \textbf{PID Feedback and Piezo Actuation:} The signal once demodulated, is taken as input for the PID controller which job is to drive the PreDAC piezoelectric actuator:
+    \begin{equation}
+    u(t) = K_p V_{\mathrm{demod}}(t) + K_i \int_0^t V_{\mathrm{demod}}(\tau) \, d\tau + K_d \frac{dV_{\mathrm{demod}}(t)}{dt}
+    \end{equation}
+    When the system reaches peak intensity, the slope becomes zero; this forces the controller to keep the voltage applied to the piezoelectric device constant, thereby ensuring that the monochromator is positioned to achieve maximum beam intensity.
+\end{enumerate}
+
+\subsection{Phase Alignment}
+A practical issue with this technique is the time delay introduced by the physical system; this creates a desynchronization between the dither signal applied to the piezo and the reference signal used for mixing with the intensity signal.
+If the delay is not considered, the gradient error is calculated by $\cos(\phi)$. 
+Therefore, to avoid misalignments, it is necessary to include a controller startup phase during which the phase delay is calculated.
+
+\paragraph{Calibration Algorithm and Execution Flow:}
+The startup phase is based on the following sequence:
+\begin{enumerate}
+    \item \textbf{Operating Point Initialization:} The system drive the DMC across its range to have the rocking curve.
+    From the rocking curve is possible to know where the peak intensity is and consequently establish a point at which to begin the calibration phase (e.g., at the half-maximum point of the rocking curve slope where the gradient is steepest).
+    \item \textbf{Dynamic Warm-up and Excitation:} The dither signal is inserted into a predetermined time window. This sampling phase is used to acquire the data needed to calculate the phase delay.
+    \item \textbf{Quadrature Demodulation Sampling:} During the sampling window, after the band-pass filter the intensity signal is mixed in two ways: in-phase ($\sin(\omega_d t)$) and quadrature ($\cos(\omega_d t)$) reference components. Both signals are then passed through a low-pass filter to gather their respective DC components: 
+    \begin{align}
+        I_{\text{in-phase}}[n] &= I_{bp}[n] \cdot \sin(\omega_d t_n) \\
+        I_{\text{quadrature}}[n] &= I_{bp}[n] \cdot \cos(\omega_d t_n)
+    \end{align}
+    \item \textbf{Phase Delay Computation:} After collecting the DC components over the time interval, they are averaged and used to calculate the system phase delay.
+    The phase delay is extracted using the four-quadrant arctangent of the mean quadrature and in-phase components:
+    \begin{equation}
+        \phi_{\text{delay}} = \text{atan2}\left( \frac{1}{N}\sum I_{\text{quadrature}}, \, \frac{1}{N}\sum I_{\text{in-phase}} \right)
+    \end{equation}
+\end{enumerate}
+
+Once calculated, this phase shift $\phi_{\text{delay}}$ is used by the controller, ensuring that subsequent references for real time demodulation are aligned with the response of the mechanical oscillation curve induced by the dithering signal.

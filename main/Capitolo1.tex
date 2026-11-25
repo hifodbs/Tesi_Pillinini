@@ -1,0 +1,358 @@
+\chapter{State of the Art and Literature Review}\label{chap:State of the Art and Literature Review}
+
+\section{Introduction}
+
+The result of an experiment that involves a synchrotron beamline depends on two factors: the beam itself and its stability.
+The alignment of the photon flux can easily change due to different factors such as thermal deformation of optical components, mechanical drift.
+This type of misalignment can cause a variation in the intensity of the beam and its position.
+Some experiments have small apertures, heterogeneous samples, or energy-dependent measurements and in these cases these effects become more significant
+\cite{Proux2006,vanSilfhout2014,Quinn2021,Zohar2016}.
+The disturbance at the origin can be reduced by including improved mechanical design and thermal management.
+Another solution for reducing the disturbance is to use an active feedback, it can adjust an optical component to compensate the drift during operations.
+There are different kinds of possible experiments, usually the requirements are to control the beam position, to control the intensity of it, or a combination of both
+\cite{Proux2006,vanSilfhout2014,Quinn2021}.
+This chapter investigates how feedback methods were relevant to the development of a beam-control system for the peak intensity.
+In the specific, the topics covered are monochromator rocking-curve optimization, modulation-based gradient estimation, software-based hill climbing, and the dependence between peak intensity tracking and the beam position stabilization.
+The review is based on the systems found in Proux et al., Stoupin et al., van Silfhout et al., Zohar et al., and Quinn et al., end the ESRF MoCo documentation.
+\cite{Proux2006,Stoupin2010,vanSilfhout2014,Zohar2016,Quinn2021,MoCo2008}.
+
+\section{Definition of the Feedback Objective}
+
+\subsection{Intensity maximization and intensity regulation}
+First of all, it's necessary to distinguish between maintaining a target intensity and maintaining maximum intensity.
+In the first case, the controller attempts to minimize an error of the form
+
+\begin{equation}
+    e_I(t)=I_{\mathrm{ref}}-I(t),
+    \label{eq:intensity_setpoint_error}
+\end{equation}
+
+where $I_{\mathrm{ref}}$ is a specified intensity reference.
+In the other case, no target intensity is set, since the controller must aim for the maximum of the intensity-response function.
+\cite{MoCo2008,Quinn2021}.
+For convenience, the term \emph{peak intensity} stands for the maximum of the intensity function.
+Let $u$ represent an actuator command, it can be for example a voltage applied to a piezoelectric.
+Let $I(u,t)$ represent the corresponding measured intensity. The peak-tracking objective is
+
+\begin{equation}
+    u^\star(t)
+    =
+    \operatorname*{arg\,max}_{u\in\mathcal{U}} I(u,t),
+    \label{eq:peak_tracking_objective}
+\end{equation}
+
+where $\mathcal{U}$ is the admissible actuator range.
+The time must be included due to interpolate the system drifts.
+Instead of minimizing the error in the beam's position relative to the target.
+The systems discussed here focus on the intensity transmitted or use a beam-monitor signal as an indirect measurement of the intensity.
+\cite{Proux2006,Zohar2016,Quinn2021}.
+
+\subsection{The monochromator rocking curve}
+
+The type of monochromator discussed is the double-crystal, whose intensity depends on how the crystals are aligned with each other.
+The relation between the intensity and angle is commonly described by a rocking curve.
+The role of the feedback is to adjust the crystal's angle via the piezoelectric, in order to maintain the intensity at the maximum level.
+\cite{Proux2006}.
+Near a smooth local maximum, a useful analytical approximation is the second-order Taylor series expansion
+
+\begin{equation}
+    I(u,t)
+    \simeq
+    I_{\max}(t)
+    -
+    \frac{c(t)}{2}
+    \left[u-u^\star(t)\right]^2,
+    \qquad c(t)>0.
+    \label{eq:local_peak_model}
+\end{equation}
+
+It is not necessarily the case that rocking curves have a globally parabolic shape, this expression can be used to approximate a local portion of it and this is used to explain the feedback principle.
+The derivative of the approximation is
+
+\begin{equation}
+    \frac{\partial I}{\partial u}
+    \simeq
+    -c(t)\left[u-u^\star(t)\right].
+    \label{eq:local_peak_gradient}
+\end{equation}
+
+By looking at the sign of the derivative it is possible to know in which direction to make the correction.
+At the maximum, the gradient is zero.
+To try to achieve maximum transmission, seeking a zero gradient alone is not sufficient, minima and flat regions have small derivatives too.
+Tracking peak intensity needs an appropriate acquisition or tuning procedure, an appropriate operating
+range, and sufficient signal sensitivity.
+MoCo provides functions for automatic tuning and shows how tuning can be impactful even before regulation begins 
+\cite{MoCo2008}.
+
+\section{Modulation-Based Peak Tracking}
+
+\subsection{Gradient estimation by synchronous detection}
+
+A common method is to introduce a tiny sinusoidal noise and measure the corresponding intensity response. 
+With this approach, it is possible to understand the direction of the adjustment, which is absent from a single intensity measurement
+\cite{Proux2006,Stoupin2010,Zohar2016}.
+For example, if we consider a command 
+
+\begin{equation}
+    u(t)=\bar{u}(t)+a\sin(\omega_m t),
+    \label{eq:dither_input}
+\end{equation}
+
+where $\bar{u}$ is the slowly varying operating point, $a$ is the modulation amplitude, and $\omega_m$ is the modulation angular frequency. 
+With a small modulation, the response is approximately static over one period
+
+\begin{equation}
+    I(u(t))
+    \simeq
+    I(\bar{u})
+    +
+    a I'(\bar{u})\sin(\omega_m t)
+    +
+    \frac{a^2}{2}I''(\bar{u})\sin^2(\omega_m t).
+    \label{eq:dither_expansion}
+\end{equation}
+
+If the equation is multiplied by a phase-aligned sinusoid and followed by low-pass filtering, it gives
+
+\begin{equation}
+    g(t)
+    =
+    \operatorname{LPF}
+    \left\{
+        I(t)\sin(\omega_m t)
+    \right\}
+    \simeq
+    \frac{a}{2}I'(\bar{u}).
+    \label{eq:demodulated_gradient}
+\end{equation}
+
+The numerical scaling of the $g(t)$ depends on three factors: reference waveform, normalization and implementation.
+Under the idealized sign convention of
+Equation~\eqref{eq:demodulated_gradient}, a gradient-ascent law is
+
+\begin{equation}
+    \frac{d\bar{u}}{dt}=k g(t),
+    \qquad k>0.
+    \label{eq:ideal_gradient_ascent}
+\end{equation}
+
+Combining this law with Equation~\eqref{eq:local_peak_gradient}, it is possible to acknowledge the local convergence toward the maximum in a simplified quasi-static scenario.
+Theory and practical implementation differ by some key aspects like actuator polarity, phase lag, detector response, filtering and control delay.
+As has been observed by Zohar et al., these dynamics influence convergence and residual oscillations \cite{Zohar2016}.
+
+\subsection{Spatial or actuator gradients versus time derivatives}
+
+For tracking the intensity peak it is necessary to track its own derivative with respect to the controlled optical coordinate.
+Generally the time derivative is not equivalent in this case, because following the next equation 
+
+\begin{equation}
+    \frac{dI}{dt}
+    =
+    \frac{\partial I}{\partial u}\frac{du}{dt}
+    +
+    \frac{\partial I}{\partial t}.
+    \label{eq:temporal_vs_actuator_derivative}
+\end{equation}
+
+The equation shows that there is a term that doesn't change with the commanded actuator motion.
+It follows that, if the intensity decreases, it's not possible to know the direction in which the actuator should move.
+Knowing the reference signal used in synchronous detection allow to extract the intensity variation correlated with optical motion.
+
+\section{Early Demonstrations and Precision Stabilization}
+
+\subsection{Proux et al.: feedback for a cryogenic monochromator}
+
+Proux et al. proposed an active alignment feedback for double-crystal monochromator cooled with nitrogen liquid \cite{Proux2006}. 
+Their solution spans both thermal and mechanical aspects with ensuring optimal transmission during beamline operation.
+Piezoelectric was used as actuator for adjust the relative angle of the crystal by the feedback.
+This controller is suited to operate at the top of the rocking curve instead of working on a selected target on one of its slopes.
+The advantage of working on top of the curve is that the alignment condition is identified by a derivative-zero criterion instead of a fixed absolute intensity. 
+If the flux changes, the criterion doesn't, because the zero of the derivative stays the same when it acts as a multiplicative scaling.
+This can be practically useful if the source is changed or during energy scans
+\cite{Proux2006}.
+The derivative zero invariance is different from the invariance of all closed-loop dynamics.
+When working with the local model, if the intensity is multiplied by a positive factor, it also influences the estimated gradient.
+In this manner it also changes the effective loop gain, thus a compensation is needed.
+During robustness assessment, it is necessary to differentiate the location of the optimum and the dynamics of the convergence.
+
+\subsection{Stoupin et al.: nanoradian angular stabilization}
+
+Stoupin et al. used a null-detection feedback system for investigating angular stabilization \cite{Stoupin2010}. 
+His experiments have been conducted with a high-energy-resolution monochromator and a high-set-load monochromator due to the stringent alignment requirements.
+Angular stability was demonstrated $13\,\mathrm{nrad}$ RMS approximately \cite{Stoupin2010}.
+The work done doesn't stop at maximizing transmitted flux.
+It also shows that the intensity derivative can be used for the understanding of align reference.
+In this way a communication bridge is created between peak-seeking feedback and the high-resolution angular stabilization.
+Although they are dependent, the angular stability must be distinguished from intensity stability.
+It is possible to derive one quantity from the other, but one must take into account the presence of local rocking curve shape, operating point and other sources of photon flux. 
+That being said, from a nanoradian angle it's impossible to know the relative intensity stability without additional information.
+
+\section{ESRF MoCo}
+
+\subsection{Controller architecture and operating modes}
+
+The ESRF Monochromator Controller, MoCo, is a custom electronic module for regulating an optical component using as input a beam-monitor signal. 
+The inputs and outputs of this system are: an incoming-beam signal, INBEAM, an outgoing-beam signal, OUTBEAM and a voltage output connected to an optical actuator \cite{MoCo2008}.
+The manual distinguishes three closed-loop modes:
+
+\begin{enumerate}
+    \item \emph{Position mode}, in which a beam-position signal is regulated to a fixed reference.
+    \item \emph{Intensity mode}, in which operation is maintained
+    at a selected relative intensity on either side of a
+    transmission peak.
+    \item \emph{Oscillation mode}, in which a small modulation
+    is added to the drive and synchronous detection produces
+    a derivative-related feedback signal.
+\end{enumerate}
+
+Only the third mode provides continuous peak regulation using
+a derivative-zero condition \cite{MoCo2008}.
+
+\subsection{Control and operational functionality}
+
+MoCo's PID is limited to the integral correction rather than having a complete PID.
+The feedback system must be regulated based on the response of the optical system (actuator, mechanics, detector).
+Other than the feedback, the controller takes care of incoming-beam normalization, automatic tuning, beam-presence detection, pause and inhibit functions and an interlock interface.
+MoCo has two types of synchronous measurements, main and quadrature, they both allow the detection phase to be adjusted \cite{MoCo2008}.
+All of these properties establish that the controller is more than a peak-search algorithm.
+In fact, the controller has to distinguish misalignment from beam loss, do not make trivial corrections during interruptions, and resume operation in a controlled manner.
+
+\section{Combined Intensity and Position Stabilization}
+
+\subsection{Van Silfhout et al.: separate observables and feedback loops}
+
+Van Silfhout et al. achieved stabilization of photon flux and beam position using two independent feedback loops based on different inputs (flux and position measurements).
+The authors tested this approach with EXAFS scans at the titanium K-edge \cite{vanSilfhout2014}. 
+Maximizing photon throughput is achieved with a fast algorithm extremum-searching, which is insensitive to changes in storage-ring current and energy-dependent monochromator output.
+Instead, for correcting the position use the signals emitted by beam-position monitor.
+The validity of the method is evaluated on an experiments, which involve measurements of inhomogeneous and diluted titanium-containing samples with and without feedback \cite{vanSilfhout2014}.
+The authos emphasize and demonstrate why flux optimization and position stabilization should treated differently. 
+The flux optimization controller may adjust the the monochromator's transmission, with the goal of hit the peak of the intensity while changing the position of the beam.
+In the same way the the position stabilization controller may get in the way of the other controller.
+As already noted, some experiments need to, both position and intensity fixed.
+For example, when dealing with heterogeneous samples, the beam motion can change the material volume being probed, thus modify the recorded spectrum \cite{vanSilfhout2014}.
+
+\subsection{Zohar et al.: alignment through transmitted-intensity optimization}
+
+Zohar et al. extend extremum-seeking feedback to vertical beam-position stabilization at a small aperture \cite{Zohar2016}. 
+The system exploits the aperture for maximize the intensity through mirror instead of directly regulating a position measurement. 
+The controller reuses the beam oscillations already present due to intensity feedback.
+Knowing the phase reference supplies information about the spatial intensity gradient while reading intensity downstream.
+No additional perturbation is introduced specifically for the position-control loop \cite{Zohar2016}.
+Tests were made for testing the proposed solution, the first was introducing a misalignment and in less than $6\,\mathrm{s}$.
+The second test was for the intensity stability, the result was  $1.5\%$ FWHM (Full Width at Half Maximum) through a $5\,\mu\mathrm{m}$ aperture over an eight-hour measurement.
+The authors also observe the existence of a trade-off: achieving faster convergence can lead to larger residual actuator oscillations \cite{Zohar2016}.
+The reported $1.5\%$ value is a FWHM measure, not an RMS value.
+This decision was made due to the nature of the distribution, which isn't symmetric.
+Thus, converting FWHM to RMS for using Gaussian distribution need additional justification \cite{Zohar2016}.
+This proposed approach shows that the optimized signal changes physical meaning based on the location of the detector.
+If the detector is immediately placed after a monochromator, it primarily measures its transmission. Meanwhile, if the detector is placed after a restrictive aperture, it measures the quality of the beam.
+
+\section{Software-Based Peak Tracking}
+
+Quinn et al. propose a software-based feedback system on the I14 hard X-ray nanoprobe beamline at Diamond Light Source \cite{Quinn2021}.
+The system is composed of two parts, the first one tries to maximize the intensity through monochromator adjustment. The second part is a PID that controls the position of the beam through a mirror.
+The reasoning that led to this solution was a direct consequence of the practical limitations associated with transferring hardware-specific feedback systems between beamlines that employ different control architectures.
+This leads to an alternative solution, using a software implementation; in this way is possible to integrate the feedback with existing beamline infrastructure \cite{Quinn2021}.
+To optimize the intensity, we scan the second monochromator crystal through EPICS, covering roughly $\pm100\,\mathrm{nrad}$ in $25\,\mathrm{nrad}$ steps at $5\,\mathrm{Hz}$. 
+Once the maximum is found by a hill-climbing routine, the centre of the next sweep is shifted onto it \cite{Quinn2021}.
+This method can result similar to lock-in detection, but the way the directional information is obtained is different.
+While lock-in methods use a periodic excitation to estimate a gradient, the software hill-climbing uses discrete intensity comparisons.
+As was already stated, the monochromator adjustment affects both intensity and position of the beam, the problems aren't independent.
+Between successive intensity-search steps, the position loop is updated.
+Alternating optimization makes sure to address the interaction between the controllers without assuming that the loops are physically decoupled \cite{Quinn2021}.
+The author decided to use fixed update rate of $5\,\mathrm{Hz}$ that isn't related to the closed-loop bandwidth.
+Nonetheless, the convergence depends on the search sequence, measurement response, and disturbance magnitude.
+If large energy change is detected, the implementation breaks down into intermediate steps allowing settling time \cite{Quinn2021}.
+Quinn et al. tell to use the system for two years and as possible future development to switch on Kalmanfilter for the estimation.
+These extensions can't be proposed as solution as they weren't implemented or tested \cite{Quinn2021}.
+
+\section{Literature Comparative Assessment}
+
+The table~\ref{tab:sota_comparison} summarizes all the systems mentioned above and cites their individual contributions.
+The studies have different backgrounds, thus instead of comparing them by their performance, they are compare based on their implementation principle and objective. 
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \caption{Comparison of the feedback approaches reviewed in this chapter.}
+    \label{tab:sota_comparison}
+    \begin{tabularx}{\textwidth}{@{}p{0.19\textwidth}XX@{}}
+        \toprule
+        Reference & Main objective & Distinctive contribution \\
+        \midrule
+        Proux et al.\ \cite{Proux2006}
+        & Maximum monochromator transmission
+        & Lock-in-based alignment feedback integrated with
+          a cryogenic monochromator. \\
+        Stoupin et al.\ \cite{Stoupin2010}
+        & Precision angular stabilization
+        & Null-detection feedback with demonstrated
+          nanoradian-scale angular stability. \\
+        MoCo manual \cite{MoCo2008}
+        & Position, relative intensity, or peak tracking
+        & Dedicated controller with distinct operating modes
+          and operational supervision. \\
+        van Silfhout et al.\ \cite{vanSilfhout2014}
+        & Simultaneous flux and position stabilization
+        & Separate measurements and independent loops,
+          validated using EXAFS measurements. \\
+        Zohar et al.\ \cite{Zohar2016}
+        & Beam alignment at an aperture
+        & Spatial-gradient estimation using an existing
+          beam oscillation. \\
+        Quinn et al.\ \cite{Quinn2021}
+        & Intensity and position control during energy changes
+        & Software hill climbing interlaced with position PID. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\subsection{Gradient quality and disturbance rejection}
+
+For an explanatory measurement model
+
+\begin{equation}
+    I_{\mathrm{meas}}(u,t)
+    =
+    A(t)F(u,t)+b(t)+n(t),
+    \label{eq:intensity_measurement_model}
+\end{equation}
+
+where $A(t)$ is multiplicative source or gain variation, $F(u,t)$ is the optical transmission response, $b(t)$ is an additive background and $n(t)$ is noise.
+If $A(t)$ is positive and doesn't depend of $u$, it means the location of the maximum of $F$ doesn't change.
+Still, it can interfere with intensity comparisons if switched to a discrete search, this can happen because when $A(t)$ change its magnitude can alter the effective gain of derivative-based feedback.
+This emphasizes why such practice like source normalization and robustness to changing flux are important during implementation \cite{MoCo2008,vanSilfhout2014}.
+During the phase of synchronous detection, contributions that are not correlated with the reference after averaging are suppressed. 
+However some disturbances can still pass.
+If the disturbances pass near the modulation frequency or phase error, it may end up affect the estimated gradient.
+MoCo shows how the main and quadrature influence the phase and their relationship to it \cite{MoCo2008}.
+
+\subsection{Perturbation amplitude and measurement impact}
+
+The modulation is constrained by a trade-off, it has to be large enough to generate a measurable response and in the same time small enough to avoid disturbance.
+The local expansion described from Equation~\eqref{eq:dither_expansion}, the average intensity is approximately
+
+\begin{equation}
+    \langle I\rangle
+    \simeq
+    I(\bar{u})
+    +
+    \frac{a^2}{4}I''(\bar{u}).
+    \label{eq:mean_modulated_intensity}
+\end{equation}
+
+Operating at the peak intensity, the injected modulation makes drop the average intensity by a square factor of the modulation amplitude $a^2$.
+The modulation put into the monochromator not only alters the intensity value, but also causes a change in the position of the beam.
+Different approaches were taken by the authors: Zohar et al. exploit this coupling, whereas Quinn et al. emphasize keeping the perturbation sufficiently small for nanoprobe measurements \cite{Zohar2016,Quinn2021}.
+
+\section{Summary}
+
+The literature mentioned before proposed two main methods for tracking intensity peak: modulation-based derivative estimation with null regulation, and discrete perturb-and-observe searches.
+The first solution was designed by monochromator feedback and dedicated controllers such as MoCo.
+While the second was proposed by Quinn et al. with a software implementation 
+\cite{Proux2006,Stoupin2010,MoCo2008,Quinn2021}.
+There are some details you need to pay attention to, maximizing monochromator transmission can destabilize the beam at the sample.
+Based on the optical layout and experimental objective may require a separate position feedback or intensity measurements downstream of an aperture \cite{vanSilfhout2014,Zohar2016,Quinn2021}.
+A possible solution must take into account measured observable, gradient estimator, feedback dynamics, actuator and supervisory functions.
+All these factors are connected to each other and must be applied to the specific hardware and must be evaluated in the next chapters.
